@@ -8,20 +8,25 @@ from agents.iddfs_agent import IDDFSAgent
 from agents.greedy_bfs_agent import GreedyBFSAgent
 from agents.a_agent import AStarAgent
 import time
+from agents.and_or_agent import ANDORAgent
+# from agents.prob_dfs_agent import ProbDFSAgent
 
 # env = Environment(size=(2, 2), seed_value=None)
 
 # random_env
-# env = Environment(size=(2, 2), seed_value=None, random_action_rate=0.5)
+# env = Environment(size=(2, 2),dirt_rate=0.7, seed_value=None, random_action_rate=0.5)
 # bs_env
-# env= Environment(size=(2, 3), seed_value=73, random_action_rate=0, perception=True)
+env= Environment(size=(2, 3), seed_value=73, random_action_rate=0, perception=True)
+# env= Environment(size=(2, 3), seed_value=73, random_action_rate=0.5)
 
-env = Environment(size=(3, 3), dirt_rate=0.6, seed_value=73)
-agent = BFSAgent(env.vc) # 12
+# env = Environment(size=(3, 3), dirt_rate=0.6, seed_value=73)
+# agent = BFSAgent(env.vc) # 12
 # agent = DFSAgent(env.vc) # 17
 # agent = IDDFSAgent(env.vc) # 12
 # agent = GreedyBFSAgent(env.vc) # 13
 # agent = AStarAgent(env.vc) # 12
+# agent = ProbDFSAgent(env.vc)
+agent = ANDORAgent(env.vc)
 
 size = env.size
 building = env.building
@@ -69,11 +74,12 @@ def draw():
 
 
 def update(env_gui):
+
     if building.dirty_rooms > 0 and ai_active:
         action = agent.act()
         if action is not None:
             vc.act(action)
-            time.sleep(2)
+            time.sleep(0.5)
 
 
 def on_key_down(key):

@@ -1,3 +1,6 @@
+# custom ignore
+.backup
+
 # Editors
 .vscode/
 .idea/

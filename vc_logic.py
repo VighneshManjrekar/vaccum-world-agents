@@ -2,7 +2,7 @@ from problem import Problem
 import numpy as np
 from random import choice, seed
 import itertools
-
+# from vcbs_logic import VCBS
 
 class Room:
     def __init__(self, position, clean):
@@ -19,7 +19,9 @@ class Building:
         if rooms is not None:
             self.rooms = rooms
         else:
-            self.rooms = np.random.choice([0, 1], size=size[0] * size[1], p=[dirt_rate, 1 - dirt_rate])
+            self.rooms = np.random.choice(
+                [0, 1], size=size[0] * size[1], p=[dirt_rate, 1 - dirt_rate]
+            )
             self.rooms.resize(size[0], size[1])
         self.dirty_rooms = self.rooms.size - self.rooms.sum()
 
@@ -38,8 +40,12 @@ class Building:
             self.rooms[position] = 0
 
     def exist_room(self, position):
-        if position[0] >= 0 and position[0] < self.rooms.shape[0] and position[1] >= 0 and position[1] < \
-                self.rooms.shape[1]:
+        if (
+            position[0] >= 0
+            and position[0] < self.rooms.shape[0]
+            and position[1] >= 0
+            and position[1] < self.rooms.shape[1]
+        ):
             return True
         else:
             return False
@@ -53,11 +59,13 @@ class VC(Problem):
         self.energy_spend = energy_spend
         self.state = None
         self.random_action_rate = random_action_rate
-        self.actions = {"right": (VC.move_right, VC.move_left),
-                        "left": (VC.move_left, VC.move_right),
-                        "up": (VC.move_up, VC.move_down),
-                        "down": (VC.move_down, VC.move_up),
-                        "clean": (VC.clean, VC.make_dirty)}
+        self.actions = {
+            "right": (VC.move_right, VC.move_left),
+            "left": (VC.move_left, VC.move_right),
+            "up": (VC.move_up, VC.move_down),
+            "down": (VC.move_down, VC.move_up),
+            "clean": (VC.clean, VC.make_dirty),
+        }
 
     def copy(self):
         position_copy = self.position[:]
@@ -156,12 +164,6 @@ class VC(Problem):
         return costs
 
     def eval(self, state):
-        # non-consistent heuristik seed 100 - 16 energy instead of 15
-        # costs = 2*(state.building.rooms.size - state.building.rooms.sum()-1)
-        # consistent but weak
-        # costs = state.building.rooms.size - state.building.rooms.sum()
-
-        # consistent and dominant
         costs = 2 * (state.building.rooms.size - state.building.rooms.sum())
         if not state.building.rooms[state.position[0], state.position[1]]:
             costs -= 1
@@ -173,7 +175,6 @@ class VC(Problem):
 
     def get_all_states(self):
         states = []
-        # create all room configurations with respect to dirt
         rooms = [0] * (self.building.rooms.shape[0] * self.building.rooms.shape[1])
         permutations = set()
         permutations.add(tuple(rooms))
@@ -183,12 +184,10 @@ class VC(Problem):
             permutations = permutations.union(permutation)
         permutations = sorted(list(permutations))
         positions = []
-        # create all possible positions
         for x in range(self.building.rooms.shape[0]):
             for y in range(self.building.rooms.shape[1]):
                 positions.append((x, y))
 
-        # combine each room configuration with all possible positions
         for room_configuration in permutations:
             state = []
             state.extend(list(room_configuration))
@@ -203,17 +202,122 @@ class VC(Problem):
         return reward
 
 
+class VCBS(VC):
+
+    def __init__(self, position, building, energy_spend=0,
+                 random_action_rate=0, perception=False):
+        self.perception = perception
+        super().__init__(position, building, energy_spend, random_action_rate)
+
+    def is_goal_state(self, state):
+        for s in state:
+            if s.building.rooms.sum() != s.building.rooms.size:
+                return False
+        return True
+
+    def get_applicable_actions(self, state):
+        for s in state:
+            actions = set()
+            actions.update(super().get_applicable_actions(s))
+            if len(actions) == len(self.actions):
+                break
+        return list(actions)
+
+    def perform_action(self, state, action):
+        new_states = []
+        created_states = []
+
+        for s in state:
+            new_state = super().perform_action(s, action)
+            new_state_hash = new_state.to_state()
+
+            if new_state_hash not in created_states:
+                created_states.append(new_state_hash)
+                new_states.append(new_state)
+
+        return new_states
+
+    def action_cost(self, state, action, new_state):
+        costs = 1
+        return costs
+
+    def get_current_state(self):
+        pos_states = []
+
+        for x in range(self.building.rooms.shape[0]):
+            for y in range(self.building.rooms.shape[1]):
+
+                if (not self.perception or
+                    self.building.rooms[self.position[0], self.position[1]] ==
+                    self.building.rooms[x, y]):
+
+                    state = self.copy()
+                    state.position = [x, y]
+                    pos_states.append(state)
+
+        return pos_states
+
+    def update_belief_state(self, state):
+
+        bs = []
+        dirty = []
+        clean = []
+
+        for s in state:
+            if s.building.rooms[s.position[0], s.position[1]]:
+                clean.append(s)
+            else:
+                dirty.append(s)
+
+        if len(clean) > 0:
+            bs.append(clean)
+
+        if len(dirty) > 0:
+            bs.append(dirty)
+
+        return bs
+
+    def eval(self, state):
+        costs = 0
+
+        for s in state:
+            costs += super().eval(s)
+
+        return costs
+
+    
 class Environment:
 
-    def __init__(self, size=(3, 3), dirt_rate=0.6, width_room=274, height_room=240, seed_value=1, random_action_rate=0,
-                 perception=False):
+    def __init__(
+        self,
+        size=(3, 3),
+        dirt_rate=0.6,
+        width_room=274,
+        height_room=240,
+        seed_value=1,
+        random_action_rate=0,
+        perception=False,
+    ):
 
         if seed_value is not None:
             seed(seed_value)
         self.size = size
         self.building = Building(self.size, dirt_rate, seed=seed_value)
+        position = choice(
+            [[x, y] for x in range(self.size[0]) for y in range(self.size[1])]
+        )
 
-        self.vc = VC(choice([[x, y] for x in range(self.size[0]) for y in range(self.size[1])]), self.building,
-                         random_action_rate=random_action_rate)
+        if perception:
+            self.vc = VCBS(
+                position,
+                self.building,
+                random_action_rate=random_action_rate,
+                perception=True,
+            )
+        else:
+            self.vc = VC(position, self.building, random_action_rate=random_action_rate)
+
+        # self.vc = VC(choice([[x, y] for x in range(self.size[0]) for y in range(self.size[1])]), self.building,
+        #  random_action_rate=random_action_rate)
         self.width_room = width_room
         self.height_room = height_room

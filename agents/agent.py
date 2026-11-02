@@ -1,5 +1,4 @@
 import cProfile
-from collections import deque
 
 
 class Agent:
@@ -9,14 +8,14 @@ class Agent:
         self.planning_index = 0
 
     def plan(self, current_state):
-        # 
-        return []
+        actions = []
+        return actions
 
     def act(self):
         if len(self.action_plan) == 0:
             # percept
             current_state = self.problem.get_current_state()
-            # serach
+            # search
 
             pr = cProfile.Profile()
             pr.enable()
